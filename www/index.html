@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sveglia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1226">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#eef1f8;--sf:#fff;--tx:#111633;--mu:#5b6384;--ac:#c2410c;--on:#fff;--ln:#d5dbea;--ok:#15803d}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1226;--sf:#1a1f3d;--tx:#f1f2fa;--mu:#9aa2c8;--ac:#ffc857;--on:#1b1400;--ln:#2e3560;--ok:#4ade80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:17px/1.4 "Avenir Next",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:15px;font-weight:600;color:var(--mu);margin:0}
+#clock{font-size:64px;font-weight:300;font-variant-numeric:tabular-nums;line-height:1.1;margin:4px 0}
+#date{color:var(--mu);margin-bottom:12px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:12px 16px;min-height:48px;cursor:pointer}
+button.p{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+#arm{width:100%;margin-bottom:8px;text-align:left}
+#arm.ok{border-color:var(--ok);color:var(--ok)}
+#note{font-size:14px;color:var(--mu);margin:0 0 16px}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.card.off .t{opacity:.45}
+.row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.t{font-size:44px;font-weight:300;font-variant-numeric:tabular-nums;line-height:1}
+.s{color:var(--mu);font-size:14px}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts button{flex:1;padding:8px;min-height:44px}
+.sw{position:relative;width:64px;height:36px;flex:none}
+.sw input{opacity:0;position:absolute;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sw i{position:absolute;inset:0;background:var(--ln);border-radius:18px;transition:.15s}
+.sw i:after{content:"";position:absolute;left:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff;transition:.15s}
+.sw input:checked+i{background:var(--ac)}
+.sw input:checked+i:after{left:32px}
+.sw input:focus-visible+i{outline:3px solid var(--ac);outline-offset:2px}
+#add{position:sticky;bottom:12px;width:100%;font-size:19px}
+.ov{position:fixed;inset:0;background:var(--bg);overflow:auto;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));z-index:5;display:none}
+.ov.on{display:block}
+.ov>div{max-width:640px;margin:0 auto}
+label{display:block;margin:12px 0 4px;font-weight:600}
+label small{font-weight:400;color:var(--mu)}
+input[type=text],input[type=number],input[type=time],input[type=date],input[type=url],select,textarea{width:100%;background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:11px;min-height:46px}
+fieldset{border:1px solid var(--ln);border-radius:14px;margin:14px 0;padding:4px 14px 14px}
+legend{font-weight:700;padding:0 6px}
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.days label{margin:0;font-weight:400}
+.days input{display:none}
+.days span{display:block;min-width:44px;text-align:center;padding:10px 0;border:1px solid var(--ln);border-radius:10px;background:var(--sf)}
+.days input:checked+span{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:700}
+.chk{display:flex;gap:10px;align-items:center;font-weight:600}
+.chk input{width:24px;height:24px}
+.hide{display:none!important}
+#ring{text-align:center;z-index:9}
+#ring .big{font-size:84px;font-weight:300;font-variant-numeric:tabular-nums}
+#ring button{width:100%;margin-top:12px;font-size:22px;min-height:68px}
+#ring .say{font-size:20px;margin:10px 0}
+#trick input{font-size:30px;text-align:center}
+#trick .q{font-size:36px;font-variant-numeric:tabular-nums;margin:14px 0}
+.err{color:#dc2626}
+</style>
+</head>
+<body>
+<main>
+ <h1>Sveglia</h1>
+ <div id="clock">--:--</div>
+ <div id="date"></div>
+ <button id="arm">Attiva le sveglie</button>
+ <p id="note">Per suonare, questa pagina deve restare aperta nel browser con lo schermo acceso. Tocca "Attiva le sveglie" dopo aver aperto la pagina.</p>
+ <div id="perm"></div>
+ <label for="def_url">Stream predefinito per le nuove sveglie</label>
+ <input type="url" id="def_url" placeholder="https://...">
+ <div id="list" style="margin-top:16px"></div>
+ <button id="add" class="p">+ Nuova sveglia</button>
+</main>
+
+<div class="ov" id="ed"><div>
+ <h1 id="edt">Sveglia</h1>
+ <label>Nome</label><input type="text" id="f_name">
+ <fieldset><legend>Quando</legend>
+  <label>Tipo</label>
+  <select id="f_mode"><option value="repeat">Ripetuta nei giorni scelti</option><option value="once">Una volta, a data e ora</option><option value="countdown">Countdown</option></select>
+  <div id="g_time"><label>Ora</label><input type="time" id="f_time"></div>
+  <div id="g_days"><label>Giorni</label><div class="days" id="f_days"></div></div>
+  <div id="g_date"><label>Data</label><input type="date" id="f_date"></div>
+  <div id="g_cd"><label>Minuti da adesso <small>(parte quando salvi o accendi la sveglia)</small></label><input type="number" id="f_cd" min="1" max="1440"></div>
+ </fieldset>
+ <fieldset><legend>Suono</legend>
+  <label>Sorgente</label>
+  <select id="f_src"><option value="stream">Stream internet</option><option value="file">File audio del telefono</option></select>
+  <div id="g_url"><label>Indirizzo stream</label><input type="url" id="f_url"></div>
+  <div id="g_file" class="hide"><label>File audio</label><input type="file" accept="audio/*" id="f_file"><div class="s" id="n_file"></div></div>
+  <label>File alternativo <small>(se manca il flusso; altrimenti suono di default)</small></label>
+  <input type="file" accept="audio/*" id="f_fb"><div class="s" id="n_fb"></div>
+  <label>Secondi per arrivare al 100% del volume <small>(0 = subito)</small></label>
+  <input type="number" id="f_ramp" min="0" max="3600">
+ </fieldset>
+ <fieldset><legend>Sveglia parlante</legend>
+  <label class="chk"><input type="checkbox" id="f_speak"> Leggi un testo ad alta voce</label>
+  <div id="g_speak">
+   <label>Testo <small>variabili: {ora} {giorno} {data} {meteo}</small></label>
+   <textarea id="f_text" rows="3"></textarea>
+   <label>Secondi per arrivare al 100% del volume della voce</label>
+   <input type="number" id="f_sramp" min="0" max="3600">
+  </div>
+ </fieldset>
+ <fieldset><legend>Posponi</legend>
+  <label class="chk"><input type="checkbox" id="f_snz"> Consenti di posporre</label>
+  <div id="g_snz">
+   <label>Minuti di pausa</label><input type="number" id="f_snm" min="1" max="120">
+   <label>Quante volte al massimo</label><input type="number" id="f_snx" min="1" max="20">
+  </div>
+ </fieldset>
+ <fieldset><legend>Prova per spegnere</legend>
+  <label>Tipo</label>
+  <select id="f_trick"><option value="none">Nessuna</option><option value="math">Calcoli da risolvere</option><option value="code">Codice da ricopiare</option></select>
+  <div id="g_trick"><label>Quante prove</label><input type="number" id="f_trn" min="1" max="10"></div>
+ </fieldset>
+ <div class="acts"><button id="e_test">Prova ora</button><button id="e_cancel">Annulla</button><button class="p" id="e_save">Salva</button></div>
+</div></div>
+
+<div class="ov" id="ring"><div>
+ <div class="s" id="r_name"></div>
+ <div class="big" id="r_time"></div>
+ <div class="say" id="r_say"></div>
+ <button id="r_snz">Posponi</button>
+ <button class="p" id="r_off">Spegni</button>
+</div></div>
+
+<div class="ov" id="trick"><div style="text-align:center">
+ <div class="s" id="tk_n"></div>
+ <div class="q" id="tk_q"></div>
+ <input type="text" id="tk_a" inputmode="numeric" autocomplete="off">
+ <div class="err" id="tk_e"></div>
+ <button class="p" id="tk_ok" style="width:100%;margin-top:12px;min-height:60px">Conferma</button>
+</div></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const NATIVE=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+const AB=NATIVE?Capacitor.Plugins.AlarmBridge:null;
+let asked=false;
+function initPos(){if(asked||!navigator.geolocation)return;asked=true;navigator.geolocation.getCurrentPosition(p=>pos=p.coords,()=>{},{timeout:10000,maximumAge:3600000})}
+/* Parte nativa Android: programma le sveglie nel sistema, così suonano anche ad app chiusa */
+function nextFire(a){
+ const now=Date.now();if(!a.enabled)return null;
+ if(a.snoozeUntil&&a.snoozeUntil>now)return a.snoozeUntil;
+ if(a.mode==="repeat"){
+  for(let d=0;d<8;d++){const t=new Date();t.setDate(t.getDate()+d);const[h,m]=a.time.split(":");t.setHours(+h,+m,0,0);
+   if(t.getTime()>now+1000&&a.days.includes(t.getDay()))return t.getTime()}
+  return null}
+ return(a.target&&!a.fired&&a.target>now)?a.target:null;
+}
+function syncNative(){
+ if(!AB)return;
+ const items=[];for(const a of alarms){const at=nextFire(a);if(at)items.push({id:a.id,at})}
+ AB.setAlarms({items}).catch(()=>{});
+}
+function nativeSay(text,v){
+ return new Promise(res=>{
+  const h=AB.addListener("speakDone",()=>{h.then(x=>x.remove());res()});
+  setTimeout(res,30000);AB.speak({text,volume:v,lang:"it-IT"});
+ });
+}
+async function checkPending(){
+ if(!AB||R)return;
+ const r=await AB.getPending();if(!r||!r.id||R)return;
+ if(Date.now()-(r.at||0)>600000)return;
+ const a=alarms.find(x=>x.id===r.id);if(!a)return;
+ const n=new Date();
+ if(a.mode==="repeat")a.lastKey=n.toDateString()+pad(n.getHours())+pad(n.getMinutes());else a.fired=true;
+ a.snoozeUntil=null;save();ring(a);
+}
+async function perms(){
+ if(!AB)return;
+ const s=await AB.status(),box=$("perm");box.innerHTML="";
+ const need=[["overlay","Consenti la visualizzazione sopra le altre app (serve per aprire la sveglia da sola)"],["notif","Attiva le notifiche"],["battery","Togli l'app dalle limitazioni della batteria"]];
+ for(const[k,t]of need){if(s[k])continue;
+  const b=document.createElement("button");b.className="card";b.style.cssText="width:100%;text-align:left";b.textContent=t;
+  b.onclick=()=>AB.openSettings({what:k});box.appendChild(b)}
+}
+const DEF_URL="https://stream.srg-ssr.ch/m/rsj/mp3_128";
+let defUrl=localStorage.getItem("sv_def")||DEF_URL;
+const DAYS=["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
+const pad=n=>String(n).padStart(2,"0");
+let alarms=[];try{alarms=JSON.parse(localStorage.getItem("sveglie")||"[]")}catch(e){}
+const save=()=>{try{localStorage.setItem("sveglie",JSON.stringify(alarms))}catch(e){}syncNative()};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* File audio in IndexedDB */
+const dbp=new Promise(r=>{const q=indexedDB.open("sveglia",1);q.onupgradeneeded=()=>q.result.createObjectStore("f");q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)});
+const idb=async(m,k,v)=>{const d=await dbp;if(!d)return;return new Promise(res=>{const s=d.transaction("f",m==="get"?"readonly":"readwrite").objectStore("f");const q=m==="get"?s.get(k):m==="put"?s.put(v,k):s.delete(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res()})};
+
+/* Orologio e lista */
+function tickClock(){const n=new Date();$("clock").textContent=pad(n.getHours())+":"+pad(n.getMinutes());$("date").textContent=n.toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})}
+function describe(a){
+ if(a.mode==="repeat")return a.days.length===7?"Ogni giorno":a.days.length?a.days.map(d=>DAYS[d]).join(" "):"Nessun giorno";
+ if(a.mode==="once")return "Il "+new Date(a.target).toLocaleDateString("it-IT",{day:"numeric",month:"short"});
+ return a.enabled&&a.target?"Countdown, suona alle "+new Date(a.target).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"Countdown di "+a.cd+" min";
+}
+function render(){
+ const l=$("list");l.innerHTML="";
+ if(!alarms.length){l.innerHTML='<p class="s">Nessuna sveglia. Tocca "Nuova sveglia" per crearne una.</p>'}
+ alarms.forEach(a=>{
+  const c=document.createElement("div");c.className="card"+(a.enabled?"":" off");
+  const big=a.mode==="countdown"?(a.cd+" min"):a.time;
+  c.innerHTML='<div class="row"><div class="t"></div><label class="sw"><input type="checkbox" aria-label="Attiva"><i></i></label></div><div class="s"></div><div class="acts"><button data-a="e">Modifica</button><button data-a="c">Copia</button><button data-a="d">Elimina</button></div>';
+  c.querySelector(".t").textContent=big;
+  c.querySelector(".s").textContent=(a.name?a.name+" · ":"")+describe(a);
+  const cb=c.querySelector("input");cb.checked=a.enabled;
+  cb.onchange=()=>{a.enabled=cb.checked;a.snoozeUntil=null;if(a.enabled)arm(a);save();render()};
+  c.querySelector('[data-a="e"]').onclick=()=>openEd(a);
+  c.querySelector('[data-a="c"]').onclick=()=>dup(a);
+  c.querySelector('[data-a="d"]').onclick=()=>{if(confirm("Eliminare questa sveglia?")){alarms=alarms.filter(x=>x!==a);idb("del",a.id+":m");idb("del",a.id+":f");save();render()}};
+  l.appendChild(c);
+ });
+}
+function arm(a){ // calcola il momento di scatto per countdown / evento singolo
+ if(a.mode==="countdown")a.target=Date.now()+a.cd*60000;
+ if(a.mode==="once")a.target=new Date(a.date+"T"+a.time).getTime();
+ a.fired=false;
+}
+async function dup(a){
+ const b=JSON.parse(JSON.stringify(a));b.id=uid();b.name=(a.name||"Sveglia")+" (copia)";b.enabled=false;b.snoozeUntil=null;
+ for(const k of["m","f"]){const v=await idb("get",a.id+":"+k);if(v)await idb("put",b.id+":"+k,v)}
+ alarms.push(b);save();render();openEd(b);
+}
+
+/* Editor */
+let cur=null,pend={m:null,f:null};
+$("f_days").innerHTML=DAYS.map((d,i)=>'<label><input type="checkbox" value="'+i+'"><span>'+d+'</span></label>').join("");
+const vis=()=>{const m=$("f_mode").value;
+ $("g_time").classList.toggle("hide",m==="countdown");$("g_days").classList.toggle("hide",m!=="repeat");
+ $("g_date").classList.toggle("hide",m!=="once");$("g_cd").classList.toggle("hide",m!=="countdown");
+ const f=$("f_src").value==="file";$("g_url").classList.toggle("hide",f);$("g_file").classList.toggle("hide",!f);
+ $("g_speak").classList.toggle("hide",!$("f_speak").checked);$("g_snz").classList.toggle("hide",!$("f_snz").checked);
+ $("g_trick").classList.toggle("hide",$("f_trick").value==="none")};
+["f_mode","f_src","f_speak","f_snz","f_trick"].forEach(i=>$(i).onchange=vis);
+$("f_file").onchange=e=>{pend.m=e.target.files[0]||null;$("n_file").textContent=pend.m?pend.m.name:""};
+$("f_fb").onchange=e=>{pend.f=e.target.files[0]||null;$("n_fb").textContent=pend.f?pend.f.name:""};
+function newAlarm(){const n=new Date(Date.now()+3600000);return{id:uid(),name:"",enabled:true,mode:"repeat",time:pad(n.getHours())+":00",days:[1,2,3,4,5],date:"",cd:10,target:null,
+ src:"stream",url:defUrl,mName:"",fName:"",ramp:60,speak:false,text:"Buongiorno! Sono le {ora} di {giorno}. {meteo}",sramp:30,snz:true,snm:5,snx:3,trick:"none",trn:3}}
+function openEd(a){
+ const isNew=!a;cur=a||newAlarm();pend={m:null,f:null};cur._new=isNew;
+ $("edt").textContent=isNew?"Nuova sveglia":"Modifica sveglia";
+ $("f_name").value=cur.name;$("f_mode").value=cur.mode;$("f_time").value=cur.time;
+ $("f_days").querySelectorAll("input").forEach(i=>i.checked=cur.days.includes(+i.value));
+ $("f_date").value=cur.date||new Date().toISOString().slice(0,10);$("f_cd").value=cur.cd;
+ $("f_src").value=cur.src;$("f_url").value=cur.url;$("n_file").textContent=cur.mName;$("n_fb").textContent=cur.fName;
+ $("f_ramp").value=cur.ramp;$("f_speak").checked=cur.speak;$("f_text").value=cur.text;$("f_sramp").value=cur.sramp;
+ $("f_snz").checked=cur.snz;$("f_snm").value=cur.snm;$("f_snx").value=cur.snx;$("f_trick").value=cur.trick;$("f_trn").value=cur.trn;
+ vis();$("ed").classList.add("on");$("ed").scrollTop=0;
+}
+$("add").onclick=()=>openEd();
+$("e_cancel").onclick=()=>{$("ed").classList.remove("on")};
+function readEd(){
+ const a=cur;a.name=$("f_name").value.trim();a.mode=$("f_mode").value;a.time=$("f_time").value||"07:00";
+ a.days=[...$("f_days").querySelectorAll("input:checked")].map(i=>+i.value);a.date=$("f_date").value;a.cd=Math.max(1,+$("f_cd").value||10);
+ a.src=$("f_src").value;a.url=$("f_url").value.trim()||defUrl;a.ramp=Math.max(0,+$("f_ramp").value||0);
+ a.speak=$("f_speak").checked;a.text=$("f_text").value;a.sramp=Math.max(0,+$("f_sramp").value||0);
+ a.snz=$("f_snz").checked;a.snm=Math.max(1,+$("f_snm").value||5);a.snx=Math.max(1,+$("f_snx").value||3);
+ a.trick=$("f_trick").value;a.trn=Math.max(1,+$("f_trn").value||3);return a;
+}
+$("e_save").onclick=async()=>{
+ const a=readEd();
+ if(a.mode==="once"&&!a.date){alert("Scegli una data.");return}
+ if(pend.m){await idb("put",a.id+":m",pend.m);a.mName=pend.m.name}
+ if(pend.f){await idb("put",a.id+":f",pend.f);a.fName=pend.f.name}
+ if(a.mode!=="repeat")arm(a);
+ if(a.speak&&a.text.includes("{meteo}"))initPos();
+ delete a._new;if(!alarms.includes(a))alarms.push(a);
+ save();render();$("ed").classList.remove("on");
+};
+$("e_test").onclick=async()=>{
+ const a=readEd();
+ if(pend.m)await idb("put",a.id+":m",pend.m);if(pend.f)await idb("put",a.id+":f",pend.f);
+ ring(a,true);
+};
+
+/* Attivazione: sblocca audio, posizione, schermo sempre acceso */
+let actx=null,gain=null,wl=null,pos=null;
+async function wake(){try{if("wakeLock"in navigator)wl=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&armed)wake()});
+let armed=false;
+$("arm").onclick=async()=>{
+ try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();await actx.resume()}catch(e){}
+ try{const s=new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");await s.play()}catch(e){}
+ try{speechSynthesis.speak(new SpeechSynthesisUtterance(""))}catch(e){}
+ await wake();
+ initPos();
+ armed=true;$("arm").classList.add("ok");$("arm").textContent="Sveglie attive: tieni aperta questa pagina";
+};
+
+/* Meteo e testo parlato */
+const WMO={0:"cielo sereno",1:"prevalentemente sereno",2:"parzialmente nuvoloso",3:"coperto",45:"nebbia",48:"nebbia",51:"pioggerella",53:"pioggerella",55:"pioggerella",61:"pioggia debole",63:"pioggia",65:"pioggia forte",71:"neve debole",73:"neve",75:"neve forte",80:"rovesci",81:"rovesci",82:"rovesci forti",95:"temporale",96:"temporale",99:"temporale"};
+async function meteo(){
+ if(!pos)return "Meteo non disponibile.";
+ try{const c=new AbortController();setTimeout(()=>c.abort(),5000);
+  const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+pos.latitude+"&longitude="+pos.longitude+"&current=temperature_2m,weather_code",{signal:c.signal});
+  const j=(await r.json()).current;return "Meteo: "+(WMO[j.weather_code]||"variabile")+", "+Math.round(j.temperature_2m)+" gradi.";
+ }catch(e){return "Meteo non disponibile."}
+}
+async function buildText(a){
+ const n=new Date();let t=a.text;
+ if(t.includes("{meteo}"))t=t.replaceAll("{meteo}",await meteo());
+ return t.replaceAll("{ora}",n.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}))
+  .replaceAll("{giorno}",n.toLocaleDateString("it-IT",{weekday:"long"}))
+  .replaceAll("{data}",n.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"}));
+}
+
+/* Suoneria */
+let R=null; // stato suoneria
+async function ring(a,test){
+ if(R)return;
+ R={a,test:!!test,t0:Date.now(),aud:null,osc:null,timers:[],idx:0,say:""};
+ $("r_name").textContent=a.name||"Sveglia";$("r_say").textContent="";
+ $("r_snz").classList.toggle("hide",!(a.snz&&(a.snoozed||0)<a.snx));
+ $("ring").classList.add("on");
+ const tickT=()=>{const n=new Date();$("r_time").textContent=pad(n.getHours())+":"+pad(n.getMinutes())};tickT();R.timers.push(setInterval(tickT,1000));
+ // sorgenti in ordine: principale, alternativo, beep
+ const src=[];
+ if(a.src==="stream")src.push(()=>a.url);
+ else src.push(async()=>{const b=await idb("get",a.id+":m");return b?URL.createObjectURL(b):null});
+ src.push(async()=>{const b=await idb("get",a.id+":f");return b?URL.createObjectURL(b):null});
+ R.src=src;nextSrc();
+ R.timers.push(setInterval(()=>{ // rampa volume
+  const v=vol(a.ramp);if(R.aud)R.aud.volume=v;
+  if(R.gn)R.gn.gain.value=v*(Date.now()%1000<500?1:0);
+ },100));
+ if(a.speak)speakLoop();
+}
+const vol=s=>Math.max(.02,s>0?Math.min(1,(Date.now()-R.t0)/1000/s):1);
+async function nextSrc(){
+ const r=R;if(!r)return;const i=r.idx++;
+ if(r.aud){r.aud.onerror=r.aud.onended=r.aud.onplaying=null;r.aud.pause();r.aud.removeAttribute("src");r.aud=null}
+ if(i>=r.src.length){beep();return}
+ const u=await r.src[i]();if(R!==r)return;
+ if(!u){nextSrc();return}
+ const au=new Audio();au.loop=i>0||r.a.src==="file";au.volume=vol(r.a.ramp);r.aud=au;
+ let ok=false;
+ au.onplaying=()=>{ok=true};au.onerror=()=>{if(R===r&&r.aud===au)nextSrc()};
+ au.onended=()=>{if(R===r&&r.aud===au&&!au.loop)nextSrc()};
+ au.src=u;au.play().catch(()=>{if(R===r&&r.aud===au)nextSrc()});
+ setTimeout(()=>{if(R===r&&r.aud===au&&!ok)nextSrc()},7000);
+}
+function beep(){
+ try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();actx.resume();
+  const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.value=880;g.gain.value=0;o.connect(g);g.connect(actx.destination);o.start();
+  R.osc=o;R.gn=g}catch(e){}
+}
+async function speakLoop(){
+ const r=R;r.say=await buildText(r.a);if(R!==r)return;$("r_say").textContent=r.say;
+ const go=()=>{if(R!==r)return;
+  if(AB){nativeSay(r.say,vol(r.a.sramp)).then(()=>{if(R===r)r.timers.push(setTimeout(go,4000))});return}
+  const u=new SpeechSynthesisUtterance(r.say);u.lang="it-IT";u.volume=vol(r.a.sramp);
+  u.onend=()=>r.timers.push(setTimeout(go,4000));u.onerror=()=>{};
+  try{speechSynthesis.speak(u)}catch(e){}};
+ go();
+}
+function stopRing(){
+ if(!R)return;R.timers.forEach(t=>{clearInterval(t);clearTimeout(t)});
+ if(R.aud){R.aud.onerror=R.aud.onended=R.aud.onplaying=null;R.aud.pause();R.aud=null}
+ try{R.osc&&R.osc.stop()}catch(e){}
+ try{speechSynthesis.cancel()}catch(e){}
+ if(AB)AB.stopSpeak().catch(()=>{});
+ const a=R.a,t=R.test;R=null;$("ring").classList.remove("on");return{a,t};
+}
+$("r_snz").onclick=()=>{const{a,t}=stopRing();if(t)return;a.snoozed=(a.snoozed||0)+1;a.snoozeUntil=Date.now()+a.snm*60000;save()};
+$("r_off").onclick=()=>{
+ const a=R.a;
+ if(a.trick==="none")return finish();
+ startTrick(a,finish);
+};
+function finish(){const{a,t}=stopRing();$("trick").classList.remove("on");if(t)return;a.snoozeUntil=null;a.snoozed=0;if(a.mode!=="repeat"){a.enabled=false}save();render()}
+
+/* Prove per spegnere */
+let tk=null;
+function startTrick(a,done){tk={a,done,i:0};$("trick").classList.add("on");nextTrick()}
+function nextTrick(){
+ const a=tk.a;if(tk.i>=a.trn){tk.done();return}
+ $("tk_n").textContent="Prova "+(tk.i+1)+" di "+a.trn;$("tk_e").textContent="";$("tk_a").value="";
+ if(a.trick==="math"){
+  const x=10+Math.floor(Math.random()*40),y=2+Math.floor(Math.random()*9),z=Math.floor(Math.random()*30);
+  tk.ans=String(x*y+z);$("tk_q").textContent=x+" × "+y+" + "+z+" = ?";$("tk_a").inputMode="numeric";
+ }else{
+  const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let k=0;k<6;k++)s+=c[Math.floor(Math.random()*c.length)];
+  tk.ans=s;$("tk_q").textContent=s;$("tk_a").inputMode="text";
+ }
+ $("tk_a").focus();
+}
+$("tk_ok").onclick=()=>{
+ const v=$("tk_a").value.trim().toUpperCase();
+ if(v===tk.ans.toUpperCase()){tk.i++;nextTrick()}else{$("tk_e").textContent="Non è giusto, riprova.";$("tk_a").value="";$("tk_a").focus()}
+};
+$("tk_a").onkeydown=e=>{if(e.key==="Enter")$("tk_ok").click()};
+
+/* Scheduler */
+setInterval(()=>{
+ tickClock();if(R)return;
+ const n=new Date(),now=n.getTime(),key=n.toDateString()+pad(n.getHours())+pad(n.getMinutes());
+ for(const a of alarms){
+  if(!a.enabled)continue;
+  if(a.snoozeUntil){if(now>=a.snoozeUntil){a.snoozeUntil=null;save();ring(a)}continue}
+  if(a.mode==="repeat"){
+   if(a.time===pad(n.getHours())+":"+pad(n.getMinutes())&&a.days.includes(n.getDay())&&a.lastKey!==key){a.lastKey=key;save();ring(a);return}
+  }else if(a.target&&!a.fired&&now>=a.target&&now-a.target<600000){a.fired=true;save();ring(a);return}
+ }
+},1000);
+$("def_url").value=defUrl;
+$("def_url").onchange=()=>{defUrl=$("def_url").value.trim()||DEF_URL;$("def_url").value=defUrl;try{localStorage.setItem("sv_def",defUrl)}catch(e){}};
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+if("serviceWorker"in navigator&&!NATIVE)navigator.serviceWorker.register("sw.js").catch(()=>{});
+if(NATIVE){
+ $("arm").classList.add("hide");$("note").textContent="Le sveglie suonano anche ad app chiusa, se i permessi qui sopra sono concessi.";
+ window.addEventListener("nativealarm",checkPending);
+ document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){checkPending();perms()}});
+ perms();checkPending();syncNative();
+ if(alarms.some(a=>a.speak&&a.text.includes("{meteo}")))initPos();
+}
+tickClock();render();
+</script>
+</body>
+</html>
