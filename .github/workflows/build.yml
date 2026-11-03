@@ -1,0 +1,46 @@
+name: Crea APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Installa dipendenze
+        run: npm ci
+
+      - name: Crea il progetto Android
+        run: npx cap add android
+
+      - name: Aggiungi la parte nativa delle sveglie
+        run: |
+          cp native/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp native/java/*.java android/app/src/main/java/app/sveglia/
+
+      - name: Copia l'app web
+        run: npx cap sync android
+
+      - name: Compila l'APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sveglia-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
