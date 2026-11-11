@@ -37,13 +37,13 @@ public class AlarmReceiver extends BroadcastReceiver {
 
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Sveglia", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "SvegliaDroid", NotificationManager.IMPORTANCE_HIGH);
             ch.setSound(null, null);
             nm.createNotificationChannel(ch);
         }
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle("Sveglia")
+                .setContentTitle("SvegliaDroid")
                 .setContentText("Tocca per aprire")
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
